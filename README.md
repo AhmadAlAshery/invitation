@@ -95,7 +95,7 @@ from sqlalchemy import Column, String
 
 class MyModel(ORMBase):
     __tablename__ = "my_table"
-    
+
     name = Column(String, nullable=False)
 ```
 
@@ -111,4 +111,3 @@ from src.<module>.model import *
 alembic revision --autogenerate -m "Add MyModel"
 alembic upgrade head
 ```
-
