@@ -1,0 +1,114 @@
+# FastAPI Template
+
+A production-ready FastAPI template with SQLAlchemy, Alembic migrations, and Docker support.
+
+## Features
+
+- **FastAPI** - Modern async web framework
+- **SQLAlchemy ORM** - SQLite database (easily switchable to PostgreSQL/MySQL)
+- **Alembic** - Database migration management
+- **Docker** - Containerized setup
+- **Logging** - Daily rotating logs with timezone support
+- **CORS** - Enabled for all origins
+- **UUID Primary Keys** - Best practice IDs with automatic timestamps
+
+## Quick Start
+
+### Local Setup
+
+```bash
+# Install dependencies
+cd app
+pip install -r requirements.txt
+
+# Configure environment
+cp .env .env.local  # Edit with your values
+
+# Run migrations
+alembic revision --autogenerate -m "Initial"
+alembic upgrade head
+
+# Start server
+uvicorn main:app --reload --port 8000
+```
+
+### Docker Setup
+
+```bash
+chmod +x run.sh
+./run.sh
+
+# Access container and initialize
+docker exec -it <container-id> bash
+bash init.sh
+```
+
+## Project Structure
+
+```
+app/
+├── main.py                    # FastAPI application
+├── alembic/                   # Database migrations
+├── src/
+│   ├── core/                  # Core components
+│   │   ├── config.py          # Settings
+│   │   ├── session.py         # Database session
+│   │   ├── model.py           # Base models
+│   │   └── logging_config.py  # Logger setup
+│   └── auth/
+│       └── model.py           # User model (example)
+└── requirements.txt
+```
+
+## Configuration
+
+Edit `app/.env`:
+
+```env
+PROJECT_NAME=Template Project
+VERSION=1.0.0
+DEBUG=true
+CLIENT_ID=your_client_id
+SECRET_KEY=your_secret_key
+```
+
+## Database Migrations
+
+```bash
+# Create migration
+alembic revision --autogenerate -m "Description"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback
+alembic downgrade -1
+```
+
+## Adding Models
+
+1. Create model in `src/<module>/model.py`:
+
+```python
+from src.core.model import ORMBase
+from sqlalchemy import Column, String
+
+class MyModel(ORMBase):
+    __tablename__ = "my_table"
+    
+    name = Column(String, nullable=False)
+```
+
+2. Import in `alembic/env.py`:
+
+```python
+from src.<module>.model import *
+```
+
+3. Generate and apply migration:
+
+```bash
+alembic revision --autogenerate -m "Add MyModel"
+alembic upgrade head
+```
+

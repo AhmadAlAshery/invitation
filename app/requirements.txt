@@ -1,0 +1,6 @@
+fyers-apiv3==3.1.7
+python-dotenv==1.2.1
+fastapi[standard]==0.128.0
+alembic==1.18.1
+pytz==2025.2
+pydantic-settings==2.12.0
