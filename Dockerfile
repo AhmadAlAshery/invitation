@@ -5,7 +5,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y vim \
     gcc \
     build-essential \
-    python3-dev
+    python3-dev \
+    fonts-liberation
 
 COPY ./app .
 

@@ -1,5 +1,5 @@
 set -e
 
-docker build -t fyresapp .
+docker build -t invitationapp .
 
-docker run -d -v "$PWD/app:/app" -p "8000:8000" fyresapp
+docker run -d -v "$PWD/app:/app" -p "8000:8000" invitationapp

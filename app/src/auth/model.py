@@ -1,10 +1,23 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import String, Boolean, DateTime, Integer
 from src.core.model import ORMBase
+from sqlalchemy.orm import mapped_column, Mapped
 
 
-class User(ORMBase):
-    __tablename__ = "users"
+class Guest(ORMBase):
+    __tablename__ = "guests"
+    name = mapped_column(String, nullable=False)
+    code: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_name = mapped_column(String, nullable=False)
+    checked_in = mapped_column(Boolean, default=False)
+    is_active = mapped_column(Boolean, default=True)
 
-    
-    email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
+
+class Host(ORMBase):
+    __tablename__ = "hosts"
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    first_name = mapped_column(String(255), nullable=True)
+    last_name = mapped_column(String(255), nullable=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active = mapped_column(Boolean, default=False)
