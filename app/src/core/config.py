@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     SECRET_KEY: SecretStr = Field(
         default=SecretStr("your-super-secret-key-change-this")
     )
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(...)
-    ALGORITHM: str = Field(...)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
+    ALGORITHM: str = Field(default="HS256")
 
     class Config:
         env_file = ".env"

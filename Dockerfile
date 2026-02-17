@@ -12,5 +12,5 @@ COPY ./app .
 
 RUN pip install -r requirements.txt
 
-# CMD ["bash", "init.sh"]
-CMD ["tail", "-f", "/dev/null"]
+CMD ["bash", "init.sh"]
+# CMD ["tail", "-f", "/dev/null"]
