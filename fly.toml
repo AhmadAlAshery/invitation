@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for invitation-5x7gvq on 2026-02-24T02:01:27Z
+# fly.toml app configuration file generated for invitation-872xqg on 2026-02-24T08:54:34Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'invitation-5x7gvq'
-primary_region = 'fra'
+app = 'invitation-872xqg'
+primary_region = 'ams'
 
 [build]
 
@@ -21,6 +21,3 @@ primary_region = 'fra'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 512
-[mounts]
-  source = "app_data"
-  destination = "/app"
