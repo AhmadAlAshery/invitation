@@ -1,10 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 from src.core.logging_config import get_logger
 from fastapi.middleware.cors import CORSMiddleware
 from src.core.config import settings
 from src.auth.router import router as auth_router
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
+from src.auth.service import check_in_by_qr_code
+from sqlalchemy.orm import Session
+from src.core.session import get_db
 
 # Setup logging
 logger = get_logger()
@@ -35,48 +38,48 @@ app.add_middleware(
 #     return "Hello From Invitation Project"
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=FileResponse)
 def scanner_page():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>QR Scanner</title>
-        <script src="https://unpkg.com/html5-qrcode"></script>
-    </head>
-    <body>
-        <h2>Scan Invitation QR</h2>
-        <div id="reader" style="width:300px;"></div>
+    return FileResponse("index.html")
+    # return """
+    # <!DOCTYPE html>
+    # <html>
+    # <head>
+    #     <title>QR Scanner</title>
+    #     <script src="https://unpkg.com/html5-qrcode"></script>
+    # </head>
+    # <body>
+    #     <h2>Scan Invitation QR</h2>
+    #     <div id="reader" style="width:300px;"></div>
 
-        <script>
-            function onScanSuccess(decodedText) {
-                fetch("/checkin", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: decodedText })
-                })
-                .then(response => response.json())
-                .then(data => alert(data.message));
-            }
+    #     <script>
+    #         function onScanSuccess(decodedText) {
+    #             fetch("/checkin", {
+    #                 method: "POST",
+    #                 headers: { "Content-Type": "application/json" },
+    #                 body: JSON.stringify({ code: decodedText })
+    #             })
+    #             .then(response => response.json())
+    #             .then(data => console.log(data.message));
+    #         }
 
-            let html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", { fps: 10, qrbox: 250 });
-            html5QrcodeScanner.render(onScanSuccess);
-        </script>
-    </body>
-    </html>
-    """
+    #         let html5QrcodeScanner = new Html5QrcodeScanner(
+    #             "reader", { fps: 10, qrbox: 250 });
+    #         html5QrcodeScanner.render(onScanSuccess);
+    #     </script>
+    # </body>
+    # </html>
+    # """
 
 
 @app.post("/checkin")
-def checkin(data: dict):
+async def checkin(
+    data: dict,
+    db: Session = Depends(get_db),
+):
     code = data.get("code")
-    print("Scanned:", code)
-
-    # # Example validation
-    # if code == "INV-123":
-    #     return {"message": "✅ Welcome!"}
-    return {"message": "❌ Invalid invitation"}
+    await check_in_by_qr_code(db, code)
+    return {"message": code}
 
 
 app.include_router(

@@ -8,6 +8,7 @@ class Guest(ORMBase):
     name = mapped_column(String, nullable=False)
     code: Mapped[int] = mapped_column(Integer, nullable=False)
     event_name = mapped_column(String, nullable=False)
+    event_id = mapped_column(String, nullable=False)
     checked_in = mapped_column(Boolean, default=False)
     is_active = mapped_column(Boolean, default=True)
 

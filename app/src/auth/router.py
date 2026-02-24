@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from src.auth.model import Guest
 
 
 from src.core.session import get_db
@@ -168,7 +169,7 @@ async def get_image(
     )
 
 
-@router.get("/excel_file/{id}")
+@router.get("/excel_file/{excel_name}")
 async def get_excel(
     excel_name: str | int,
     current_host: Host = Depends(get_current_host),
@@ -179,3 +180,13 @@ async def get_excel(
         filename=excel_path.name,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+@router.get("/invitation_data/{id}")
+async def get_invitation_data(
+    id: str | int,
+    db: Session = Depends(get_db),
+    current_host: Host = Depends(get_current_host),
+):
+    guests = db.query(Guest).filter(Guest.event_id == id).all()
+    return guests

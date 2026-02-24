@@ -18,6 +18,8 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 import pandas as pd
 import uuid
+import zipfile
+import os
 
 
 import logging
@@ -243,6 +245,7 @@ class AuthService:
 
             # Add column x (example: constant value)
             df["event_name"] = invitation_name
+            df["event_id"] = file_id
 
             guests = []
             for _, row in df.iterrows():
@@ -250,6 +253,7 @@ class AuthService:
                     name=row["name"],
                     code=row["code"],
                     event_name=invitation_name,
+                    event_id=file_id,
                 )
                 guests.append(guest)
 
@@ -298,11 +302,16 @@ class AuthService:
                 status_code=400, detail=f"Excel processing failed: {str(e)}"
             )
 
-        # Return modified file
+        # Return modified
+        # image_folder, saved_path
+        # file_id name
+        zip_file_name = base_path / (file_id + ".zip")
+        zip_file_and_folder(zip_file_name, saved_path, image_folder)
         return FileResponse(
-            path=saved_path,
-            filename=saved_path.name,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            path=zip_file_name,
+            filename=zip_file_name.name,
+            # media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            media_type="application/zip",
         )
 
 
@@ -357,3 +366,49 @@ def add_name_to_invitation(input, name, output):
     img.save(output)
 
     return True
+
+
+async def check_in_by_qr_code(db: Session, code):
+    try:
+        id = code.split("_")[-1]
+        guest = db.query(Guest).filter(Guest.id == id).first()
+        if not guest:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Guest not found in the Database.",
+            )
+        if not guest.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Guest is not active.",
+            )
+        if guest.checked_in:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Guest has already checked in before.",
+            )
+        guest.checked_in = True
+        db.commit()
+        return True
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"check_in_by_qr_code failed: {type(e)} {str(e)}",
+        )
+
+
+def zip_file_and_folder(zip_name, file_path, folder_path):
+    with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as z:
+        # Add single file
+        z.write(file_path, arcname=os.path.basename(file_path))
+
+        # Add folder recursively
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                full_path = os.path.join(root, file)
+                arcname = os.path.relpath(full_path, start=os.path.dirname(folder_path))
+                z.write(full_path, arcname)
