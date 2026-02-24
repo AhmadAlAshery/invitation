@@ -12,5 +12,10 @@ COPY ./app .
 
 RUN pip install -r requirements.txt
 
-CMD ["bash", "init.sh"]
+RUN alembic revision --autogenerate -m "Start"
+RUN alembic upgrade head
+
+
+# CMD ["bash", "init.sh"]
 # CMD ["tail", "-f", "/dev/null"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
