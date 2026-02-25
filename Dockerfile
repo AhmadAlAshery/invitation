@@ -12,8 +12,5 @@ COPY ./app .
 
 RUN pip install -r requirements.txt
 
-# RUN alembic revision --autogenerate -m "Start"
-# RUN alembic upgrade head
 
-
-CMD ["/bin/sh", "-c", "alembic revision --autogenerate -m 'Start' && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["/bin/sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
