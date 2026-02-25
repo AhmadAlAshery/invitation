@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
-from jose import jwt
+from jose import jwt  # type: ignore
 from sqlalchemy.orm import load_only
-from jose.exceptions import JWTError, ExpiredSignatureError
+from jose.exceptions import JWTError, ExpiredSignatureError  # type: ignore
 import bcrypt
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -10,7 +10,6 @@ from pydantic import SecretStr
 from sqlalchemy import func
 from src.core.config import settings
 from PIL import Image, ImageDraw, ImageFont
-from datetime import datetime, timezone
 import qrcode
 from src.auth.model import Host, Guest
 from src.auth.schema import HostCreate, HostResponse
@@ -209,7 +208,7 @@ class AuthService:
                 detail=f"Deleting failed: {type(e)} {str(e)}",
             )
 
-    async def generate_images(self, db: Session, file, invitation_name: str):
+    def generate_images(self, db: Session, contents, invitation_name: str):
         base_path = Path("src") / "excel"
         base_path.mkdir(parents=True, exist_ok=True)
 
@@ -217,13 +216,6 @@ class AuthService:
         images_path.mkdir(parents=True, exist_ok=True)
         temp_path = Path("src") / "temp"
         temp_path.mkdir(parents=True, exist_ok=True)
-
-        qr = qrcode.QRCode(
-            version=2,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10,
-            border=4,
-        )
 
         # Create unique filename
         file_id = uuid.uuid4().hex
@@ -233,7 +225,7 @@ class AuthService:
 
         # Save uploaded file temporarily
         try:
-            contents = await file.read()
+            # contents = file.read()
             with open(saved_path, "wb") as f:
                 f.write(contents)
         except Exception:
@@ -268,12 +260,18 @@ class AuthService:
 
             for _, row in df.iterrows():
                 data = f"{row['code']}-{row['name']}_{row['id']}"
+                qr = qrcode.QRCode(
+                    version=2,
+                    error_correction=qrcode.constants.ERROR_CORRECT_M,  # pyright: ignore[reportAttributeAccessIssue]
+                    box_size=10,
+                    border=4,
+                )
                 qr.add_data(data)
                 qr.make(fit=True)
 
                 qr_image = qr.make_image(fill_color="black", back_color="white")
                 qr_image_path = temp_path / f"{data}.png"
-                qr_image.save(qr_image_path)
+                qr_image.save(qr_image_path)  # pyright: ignore[reportArgumentType]
                 background = Image.open("src/asset.jpeg")
                 # Open the QR code image
                 qr_image = Image.open(qr_image_path)
@@ -305,14 +303,17 @@ class AuthService:
         # Return modified
         # image_folder, saved_path
         # file_id name
-        zip_file_name = base_path / (file_id + ".zip")
+        zip_file_name = base_path / (f"{invitation_name}_{file_id}.zip")
         zip_file_and_folder(zip_file_name, saved_path, image_folder)
-        return FileResponse(
-            path=zip_file_name,
-            filename=zip_file_name.name,
-            # media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            media_type="application/zip",
-        )
+        if saved_path.exists():
+            saved_path.unlink()
+        # return FileResponse(
+        #     path=zip_file_name,
+        #     filename=zip_file_name.name,
+        #     # media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        #     media_type="application/zip",
+        # )
+        return zip_file_name
 
 
 def add_name_to_invitation(input, name, output):

@@ -1,10 +1,21 @@
-from fastapi import APIRouter, Depends, Request, Query, UploadFile, File, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    Query,
+    UploadFile,
+    File,
+    HTTPException,
+    BackgroundTasks,
+)
 from fastapi.responses import FileResponse
 from pathlib import Path
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from src.auth.model import Guest
-
+from src.auth.model import Guest, Job
+import uuid
+from fastapi.concurrency import run_in_threadpool
+from src.core.session import SessionLocal
 
 from src.core.session import get_db
 
@@ -98,6 +109,7 @@ async def activate_host(
 
 @router.post("/process-invitation-file")
 async def process_invitation_file(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_host: Host = Depends(get_current_host),
     invitation_name: str = Query(..., description="Invitation name"),
@@ -108,8 +120,71 @@ async def process_invitation_file(
     save it inside src/excel, and return it.
     """
 
+    # Read file contents NOW (before the request closes)
+    contents = await file.read()
+    job = Job(status="pending")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    background_tasks.add_task(
+        run_in_threadpool, run_generate_images, job.id, contents, invitation_name
+    )
     # Ensure parent directory exists
-    return await auth_service.generate_images(db, file, invitation_name)
+    return {"job_id": job.id}
+
+
+def run_generate_images(job_id: str, contents: bytes, invitation_name: str):
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job.status = "running"
+        db.commit()
+        zip_path = auth_service.generate_images(db, contents, invitation_name)
+        job.status = "done"
+        job.result = str(zip_path)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job.status = "error"
+        job.error = str(e)
+        db.commit()
+    finally:
+        db.close()
+
+
+@router.get("/invitation-job/{job_id}")
+def get_job_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": job.status, "error": job.error}
+
+
+@router.get("/invitation-job/{job_id}/download")
+def download_job_result(
+    job_id: str,
+    db: Session = Depends(get_db),
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job or job.status != "done":
+        raise HTTPException(status_code=400, detail="Not ready")
+    return FileResponse(
+        path=job.result,
+        filename=Path(job.result).name,
+        media_type="application/zip",
+    )
 
 
 @router.get("/excel_files")
@@ -121,7 +196,11 @@ async def list_files(
     if not base_path.exists() or not base_path.is_dir():
         raise HTTPException(status_code=404, detail="Folder not found")
 
-    files = [f.name for f in base_path.iterdir() if f.is_file()]
+    files = files = [
+        f.name
+        for f in base_path.iterdir()
+        if f.is_file() and f.suffix.lower() == ".zip"
+    ]
 
     return {"files": files}
 

@@ -110,37 +110,46 @@
             .toast {
                 display: flex;
                 align-items: flex-start;
-                gap: 10px;
-                padding: 12px 16px;
+                gap: 12px;
+
+                padding: 16px 20px;
+
                 border-radius: var(--radius);
-                min-width: 280px;
-                max-width: 380px;
+                min-width: 300px;
+                max-width: 420px;
+
                 border: 1px solid;
-                backdrop-filter: blur(24px);
+                backdrop-filter: blur(30px);
+
                 pointer-events: all;
-                font-size: 0.85rem;
-                line-height: 1.4;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+                font-size: 0.92rem;
+                line-height: 1.5;
+
+                box-shadow:
+                    0 12px 40px rgba(0, 0, 0, 0.7),
+                    0 0 0 1px rgba(255, 255, 255, 0.04);
+
                 animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             }
             .toast.exiting {
                 animation: toastOut 0.25s ease forwards;
             }
             .toast-success {
-                background: rgba(10, 10, 14, 0.94);
-                border-color: rgba(77, 171, 106, 0.4);
+                background: rgba(10, 14, 10, 0.98);
+                border-color: rgba(77, 171, 106, 0.75);
             }
             .toast-error {
                 background: rgba(10, 10, 14, 0.94);
                 border-color: rgba(217, 79, 79, 0.4);
             }
             .toast-warning {
-                background: rgba(10, 10, 14, 0.94);
-                border-color: rgba(201, 168, 76, 0.4);
+                background: rgba(20, 18, 8, 0.98);
+                border-color: rgba(201, 168, 76, 0.75);
             }
             .toast-info {
-                background: rgba(10, 10, 14, 0.94);
-                border-color: rgba(77, 140, 171, 0.4);
+                background: rgba(10, 14, 18, 0.98);
+                border-color: rgba(77, 140, 171, 0.75);
             }
             .toast-icon {
                 font-size: 1rem;
@@ -158,8 +167,9 @@
             .toast-success .toast-title {
                 color: var(--green);
             }
-            .toast-error .toast-title {
-                color: var(--red);
+            .toast-error {
+                background: rgba(18, 10, 10, 0.98);
+                border-color: rgba(217, 79, 79, 0.75);
             }
             .toast-warning .toast-title {
                 color: var(--gold);
@@ -168,9 +178,9 @@
                 color: var(--blue);
             }
             .toast-msg {
-                color: #b8b2a8;
-                font-size: 0.8rem;
-                margin-top: 1px;
+                color: #e6e0d6;
+                font-size: 0.9rem;
+                opacity: 0.95;
             }
             .toast-close {
                 background: none;
@@ -1193,6 +1203,27 @@
                 footer {
                     padding: 1.25rem 1rem;
                 }
+                .toast-container {
+                    top: 90px;
+                    right: 12px;
+                    left: 12px;
+                    align-items: stretch;
+                }
+
+                .toast {
+                    min-width: 0;
+                    width: 100%;
+                    font-size: 0.95rem;
+                    padding: 18px;
+                }
+
+                .toast-title {
+                    font-size: 0.95rem;
+                }
+
+                .toast-msg {
+                    font-size: 0.9rem;
+                }
             }
         </style>
     </head>
@@ -1494,7 +1525,7 @@
                 const [starting, setStarting] = useState(false);
                 const scannerRef = useRef(null);
                 const cooldownRef = useRef({});
-                const COOLDOWN = 5000;
+                const COOLDOWN = 1000;
 
                 const stop = useCallback(() => {
                     if (scannerRef.current) {
@@ -1556,9 +1587,14 @@
                         await scanner.start(
                             { facingMode: "environment" },
                             {
-                                fps: 10,
-                                qrbox: { width: 200, height: 200 },
+                                fps: 20,
+                                qrbox: { width: 280, height: 280 },
                                 aspectRatio: 1.333,
+                                experimentalFeatures: {
+                                    useBarCodeDetectorIfSupported: true, // ← native browser API, much faster
+                                },
+                                rememberLastUsedCamera: true,
+                                supportedScanTypes: [0], // ← 0 = QR only, skips barcode scanning overhead
                             },
                             onScan,
                             () => {},
@@ -1594,7 +1630,7 @@
                         </h1>
                         <p className="hero-sub">
                             QR-powered check-in with instant toast feedback. No
-                            login required. A 5-second cooldown prevents
+                            login required. A 1-second cooldown prevents
                             duplicate scans of the same code.
                         </p>
                         <div
@@ -1610,7 +1646,7 @@
                                         : "Camera Off"}
                                 </span>
                                 <span className="scanner-hint">
-                                    3s cooldown per code
+                                    1s cooldown per code
                                 </span>
                             </div>
                             <div className="scanner-viewport">
@@ -2127,33 +2163,79 @@
                             "Name required",
                             "Enter an invitation / event name.",
                         );
+
                     if (!file)
                         return toast(
                             "warning",
                             "No file selected",
                             "Please select an .xlsx file.",
                         );
+
                     setBusy(true);
+
                     try {
                         const fd = new FormData();
                         fd.append("file", file);
-                        const blob = await api(
+
+                        // 1️⃣ Upload and get job_id
+                        const { job_id } = await api(
                             `/auth/process-invitation-file?invitation_name=${encodeURIComponent(name)}`,
                             { method: "POST", body: fd },
                         );
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${name}_processed.zip`;
-                        a.click();
-                        URL.revokeObjectURL(url);
+
+                        if (!job_id) throw new Error("Failed to create job.");
+
                         toast(
-                            "success",
-                            "Done!",
-                            "Invitations generated & file downloaded.",
+                            "info",
+                            "Processing...",
+                            "Generating invitations...",
                         );
-                        onDone();
-                        onClose();
+
+                        // 2️⃣ Poll for status
+                        let status = "pending";
+                        let error = null;
+
+                        while (status === "pending" || status === "running") {
+                            await new Promise((r) => setTimeout(r, 2000));
+
+                            const data = await api(
+                                `/auth/invitation-job/${job_id}`,
+                            );
+
+                            status = data.status;
+                            error = data.error;
+
+                            if (status === "error") {
+                                throw new Error(error || "Processing failed.");
+                            }
+                        }
+
+                        // 3️⃣ Download when done
+                        if (status === "done") {
+                            const downloadRes = await fetch(
+                                `/auth/invitation-job/${job_id}/download`,
+                            );
+
+                            const blob = await downloadRes.blob();
+
+                            const url = URL.createObjectURL(blob);
+
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${name}_processed.zip`;
+                            a.click();
+
+                            URL.revokeObjectURL(url);
+
+                            toast(
+                                "success",
+                                "Done!",
+                                "Invitations generated & file downloaded.",
+                            );
+
+                            onDone();
+                            onClose();
+                        }
                     } catch (e) {
                         toast("error", "Upload failed", e.message);
                     } finally {

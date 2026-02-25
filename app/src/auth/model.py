@@ -22,3 +22,10 @@ class Host(ORMBase):
     last_name = mapped_column(String(255), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active = mapped_column(Boolean, default=False)
+
+
+class Job(ORMBase):
+    __tablename__ = "jobs"
+    status: Mapped[str] = mapped_column(String(255), nullable=False)
+    result: Mapped[str] = mapped_column(String(255), nullable=True)
+    error: Mapped[str] = mapped_column(String(255), nullable=True)
